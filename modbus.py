@@ -24,7 +24,7 @@ class ModbusProtocolError(Exception):
         self.message = message
         self.packet = packet
     def __str__(self):
-        return "[Error][ModbusProtocol] %s" % self.message
+        return f"[Error][ModbusProtocol] {self.message}"
 
 class ModbusError(Exception):
     _errors = {
@@ -44,7 +44,7 @@ class ModbusError(Exception):
         self.code = code
         self.message = ModbusError._errors[code] if ModbusError._errors.has_key(code) else 'Unknown Error'
     def __str__(self):
-        return "[Error][Modbus][%d] %s" % (self.code, self.message)
+        return f"[Error][Modbus][{self.code}] {self.message}"
 
 
 class ModbusPacket:
@@ -136,10 +136,10 @@ def ScanUnit(ip, port, uid, timeout, function=None, data=''):
 
     try:
         deviceInfo = con.DeviceInfo()
-        unitInfo.append("Device: %s" % deviceInfo)
+        unitInfo.append(f"Device: {deviceInfo}")
     except ModbusError as e:
         if e.code:
-            unitInfo.append("Device info error: %s" % e.message)
+            unitInfo.append(f"Device info error: {e.message}")
         else:
             return unitInfo
 
@@ -162,19 +162,19 @@ def Scan(ip, port, options):
 
             if unitInfo:
                 if not res:
-                    print "%s:%d Modbus/TCP" % (ip, port)
+                    print(f"{ip}:{port} Modbus/TCP")
                     res = True
-                print "  Unit ID: %d" % uid
+                print("  Unit ID: %d" % uid)
                 for line in unitInfo:
-                    print "    %s" % line
+                    print("    %s" % line)
 
         return res
 
     except ModbusProtocolError as e:
-        print "%s:%d Modbus protocol error: %s (packet: %s)" % (ip, port, e.message, e.packet.encode('hex'))
+        print("%s:%d Modbus protocol error: %s (packet: %s)" % (ip, port, e.message, e.packet.encode('hex')))
         return res
     except socket.error as e:
-        print "%s:%d %s" % (ip, port, e)
+        print("%s:%d %s" % (ip, port, e))
         return res
 
 def AddOptions(parser):

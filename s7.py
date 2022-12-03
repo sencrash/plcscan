@@ -23,14 +23,14 @@ def StripUnprintable(msg):
 class TPKTPacket:
     """ TPKT packet. RFC 1006
     """
-    def __init__(self, data=''):
-        self.data = str(data)
+    def __init__(self, data=b''):
+        self.data = bytes(data)
     def pack(self):
         return pack('!BBH',
             3,                  # version
             0,                  # reserved
             len(self.data)+4    # packet size
-        ) + str(self.data)
+        ) + bytes(self.data)
     def unpack(self,packet):
         try:
             header = unpack('!BBH', packet[:4])
@@ -62,7 +62,7 @@ class COTPConnectionPacket:
             0xc1, 2, self.src_tsap,
             0xc2, 2, self.dst_tsap,
             0xc0, 1, self.tpdu_size )
-    def __str__(self):
+    def __bytes__(self):
         return self.pack()
 
     def unpack(self, packet):
@@ -82,23 +82,23 @@ class COTPConnectionPacket:
 class COTPDataPacket:
     """ COTP Data packet (ISO on TCP). RFC 1006
     """
-    def __init__(self, data=''):
+    def __init__(self, data=b''):
         self.data = data
     def pack(self):
         return pack('!BBB',
             2,                      # header len
             0xf0,                   # data packet
-            0x80) + str(self.data)
+            0x80) + bytes(self.data)
     def unpack(self, packet):
-        self.data = packet[ord(packet[0])+1:]
+        self.data = packet[packet[0]+1:]
         return self
-    def __str__(self):
+    def __bytes__(self):
         return self.pack()
 
 class S7Packet:
     """ S7 packet
     """
-    def __init__(self, type=1, req_id=0, parameters='', data=''):
+    def __init__(self, type=1, req_id=0, parameters='', data=b''):
         self.type       = type
         self.req_id     = req_id
         self.parameters = parameters
@@ -120,16 +120,16 @@ class S7Packet:
 
     def unpack(self, packet):
         try:
-            if ord(packet[1]) in [3,2]:   # pdu-type = response
+            if packet[1] in [3,2]:   # pdu-type = response
                 header_size = 12
                 magic0x32, self.type, reserved, self.req_id, parameters_length, data_length, self.error = unpack('!BBHHHHH', packet[:header_size])
                 if self.error:
                     raise S7Error(self.error)
-            elif ord(packet[1]) in [1,7]:
+            elif packet[1] in [1,7]:
                 header_size = 10
                 magic0x32, self.type, reserved, self.req_id, parameters_length, data_length = unpack('!BBHHHH', packet[:header_size])
             else:
-                raise S7ProtocolError("Unknown pdu type (%d)" % ord(packet[1]))
+                raise S7ProtocolError("Unknown pdu type (%d)" % packet[1])
         except struct.error as e:
             raise S7ProtocolError("Wrong S7 packet format")
 
@@ -137,7 +137,7 @@ class S7Packet:
         self.data = packet[header_size+parameters_length:header_size+parameters_length+data_length]
         return self
 
-    def __str__(self):
+    def __bytes__(self):
         return self.pack()
 
 
@@ -159,7 +159,7 @@ class S7Error( Exception ):
     }
     def __init__(self, code):
         self.code = code
-    def __str__(self):
+    def __bytes__(self):
         if S7Error._errors.has_key(self.code):
             message = S7Error._errors[self.code]
         else:
@@ -199,7 +199,7 @@ class s7:
 
         self.NegotiatePDU()
 
-    def Request(self, type, parameters='', data=''):
+    def Request(self, type, parameters='', data=b''):
         """ Send s7 request and receive response
         """
         packet = TPKTPacket(COTPDataPacket(S7Packet(type, self.req_id, parameters, data))).pack()
@@ -224,7 +224,7 @@ class s7:
         func, unknown, pj1, pj2, pdu = unpack('!BBHHH', response.parameters)
         return pdu
 
-    def Function(self, type, group, function, data=''):
+    def Function(self, type, group, function, data=b''):
         parameters = pack('!LBBBB',
             0x00011200 +            # parameter head (magic)
             0x04,                   # parameter length
@@ -281,8 +281,8 @@ def GetIdentity(ip, port, src_tsap, dst_tsap):
                       7:'Basic Firmware'
                   },
                   'packer': {
-                      (1, 6): lambda(packet): "{0:s} v.{2:d}.{3:d}".format(*unpack('!20sHBBH', packet)),
-                      (7,): lambda(packet): "{0:s} v.{3:d}.{4:d}.{5:d}".format(*unpack('!20sHBBBB', packet))
+                      (1, 6): lambda packet: "{0:s} v.{2:d}.{3:d}".format(*unpack('!20sHBBH', packet)),
+                      (7,): lambda packet: "{0:s} v.{3:d}.{4:d}.{5:d}".format(*unpack('!20sHBBBB', packet))
                   }
                 },
         0x1c:
@@ -301,9 +301,9 @@ def GetIdentity(ip, port, src_tsap, dst_tsap):
                       11:'Location designation of a module'
                   },
                   'packer': {
-                      (1, 2, 5): lambda(packet): "%s" % packet[:24],
-                      (3, 7, 8): lambda(packet): "%s" % packet[:32],
-                      (4,): lambda(packet): "%s" % packet[:26]
+                      (1, 2, 5): lambda packet: "%s" % packet[:24],
+                      (3, 7, 8): lambda packet: "%s" % packet[:32],
+                      (4,): lambda packet: "%s" % packet[:26]
                   }
                 }
     }
@@ -342,13 +342,13 @@ def Scan(ip, port, options):
     res = ()
     try:
         res = BruteTsap(ip, port, src_tsaps, dst_tsaps)
-    except socket.error as e:
-        print "%s:%d %s" % (ip, port, e)
+    except socket.error as error:
+        print(f"{ip}:{port} {error}")
 
     if not res:
         return False
 
-    print "%s:%d S7comm (src_tsap=0x%x, dst_tsap=0x%x)" % (ip, port, res[0], res[1])
+    print("%s:%d S7comm (src_tsap=0x%x, dst_tsap=0x%x)" % (ip, port, res[0], res[1]))
 
     # sometimes unexpected exceptions occures, so try to get identity several time
     identities = []
@@ -357,10 +357,10 @@ def Scan(ip, port, options):
             identities = GetIdentity(ip, port, res[0], res[1])
             break
         except (S7ProtocolError, socket.error) as e:
-            print "  %s" % e
+            print("  %s" % e)
 
     for line in identities:
-        print "  %s" % line
+        print("  %s" % line)
 
     return True
 

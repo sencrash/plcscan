@@ -49,7 +49,7 @@ def scan(argv):
         try:
             scan_hosts = [file.strip() for file in open(options.hosts_file, 'r')]
         except IOError:
-            print "Can't open file %s" % options.hosts_file
+            print(f"Can't open file {options.hosts_file}")
 
     for ip in args:
         scan_hosts.extend(get_ip_list(ip) if '/' in ip else
@@ -58,7 +58,7 @@ def scan(argv):
     scan_ports = [int(port) for port in options.ports.split(',')]
 
     if not scan_hosts:
-        print "No targets to scan\n\n"
+        print("No targets to scan\n\n")
         parser.print_help()
         exit()
 
@@ -71,7 +71,7 @@ def scan(argv):
         else:
             ports = scan_ports
         for port in ports:
-            status("%s:%d...\r" % (host, port))
+            status(f"{host}:{port}...\r")
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(options.connect_timeout)
@@ -88,7 +88,7 @@ def scan(argv):
                 res = modbus.Scan(host, port, options) or s7.Scan(host, port, options)
 
             if not res:
-                print "%s:%d unknown protocol" % (host, port)
+                print(f"{host}:{port} unknown protocol")
 
 
     status("Scan complete\n")
